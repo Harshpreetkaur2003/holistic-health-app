@@ -6,5 +6,8 @@ scikit-learn
 matplotlib
 Pillow
 PyPDF2
+python-docx
+
+
 
 
