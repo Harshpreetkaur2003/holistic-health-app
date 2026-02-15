@@ -13,11 +13,13 @@ import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="🌿 Holistic Health Assessment", layout="wide")
 st.title("🌿 Holistic Health & Lifestyle Assessment")
-
-# -----------------------------
-# Load ML models
 import os
 import pickle
+import streamlit as st
+
+# -----------------------------
+# Load ML models safely
+# -----------------------------
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -25,11 +27,21 @@ rf_path = os.path.join(BASE_DIR, "model", "rf_model.pkl")
 scaler_path = os.path.join(BASE_DIR, "model", "scaler.pkl")
 nn_path = os.path.join(BASE_DIR, "model", "nn_model.h5")
 
+# Debug check (you can remove later)
+st.write("Looking for models at:")
+st.write(rf_path)
+
+if not os.path.exists(rf_path):
+    st.error("rf_model.pkl NOT FOUND")
+if not os.path.exists(scaler_path):
+    st.error("scaler.pkl NOT FOUND")
+
 with open(rf_path, "rb") as f:
     rf_model = pickle.load(f)
 
 with open(scaler_path, "rb") as f:
     scaler = pickle.load(f)
+
 
 
 
@@ -170,6 +182,7 @@ if st.button("Analyze Health Risk"):
     buffer.seek(0)
     b64 = base64.b64encode(buffer.read()).decode()
     st.markdown(f'<a href="data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,{b64}" download="Holistic_Health_Report.docx">📥 Download Word Report</a>', unsafe_allow_html=True)
+
 
 
 
