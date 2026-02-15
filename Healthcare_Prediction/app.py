@@ -16,14 +16,21 @@ st.title("🌿 Holistic Health & Lifestyle Assessment")
 
 # -----------------------------
 # Load ML models
-# -----------------------------
-# Load ML models (Cloud Safe Version)
-# Load ML models
-with open("model/rf_model.pkl", "rb") as f:
+import os
+import pickle
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+rf_path = os.path.join(BASE_DIR, "model", "rf_model.pkl")
+scaler_path = os.path.join(BASE_DIR, "model", "scaler.pkl")
+nn_path = os.path.join(BASE_DIR, "model", "nn_model.h5")
+
+with open(rf_path, "rb") as f:
     rf_model = pickle.load(f)
-with open("model/scaler.pkl", "rb") as f:
+
+with open(scaler_path, "rb") as f:
     scaler = pickle.load(f)
-nn_model = load_model("model/nn_model.h5")
+
 
 
 # -----------------------------
@@ -163,6 +170,7 @@ if st.button("Analyze Health Risk"):
     buffer.seek(0)
     b64 = base64.b64encode(buffer.read()).decode()
     st.markdown(f'<a href="data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,{b64}" download="Holistic_Health_Report.docx">📥 Download Word Report</a>', unsafe_allow_html=True)
+
 
 
 
