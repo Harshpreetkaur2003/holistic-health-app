@@ -1,0 +1,7 @@
+Flask
+tensorflow==2.14.0
+pandas
+numpy
+gunicorn
+matplotlib
+reportlab
