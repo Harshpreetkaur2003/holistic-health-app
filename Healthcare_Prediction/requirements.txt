@@ -1,7 +1,10 @@
-Flask
-tensorflow==2.14.0
+streamlit==1.32.0
+tensorflow==2.12.0
 pandas
 numpy
-gunicorn
+scikit-learn
 matplotlib
-reportlab
+Pillow
+PyPDF2
+
+
