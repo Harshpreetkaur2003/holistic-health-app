@@ -10,40 +10,44 @@ from docx import Document
 from docx.shared import Pt
 import base64
 import matplotlib.pyplot as plt
+import os
 
 st.set_page_config(page_title="🌿 Holistic Health Assessment", layout="wide")
 st.title("🌿 Holistic Health & Lifestyle Assessment")
-import os
-import pickle
-import streamlit as st
 
 # -----------------------------
-# Load ML models safely
-# -----------------------------
-
+# Base directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 rf_path = os.path.join(BASE_DIR, "model", "rf_model.pkl")
 scaler_path = os.path.join(BASE_DIR, "model", "scaler.pkl")
 nn_path = os.path.join(BASE_DIR, "model", "nn_model.h5")
 
-# Debug check (you can remove later)
-st.write("Looking for models at:")
-st.write(rf_path)
+# -----------------------------
+# Load models safely
+rf_model = None
+scaler = None
+nn_model = None
 
-if not os.path.exists(rf_path):
-    st.error("rf_model.pkl NOT FOUND")
-if not os.path.exists(scaler_path):
-    st.error("scaler.pkl NOT FOUND")
+# Random Forest
+try:
+    with open(rf_path, "rb") as f:
+        rf_model = pickle.load(f)
+except Exception as e:
+    st.error(f"rf_model.pkl could not be loaded: {e}")
 
-with open(rf_path, "rb") as f:
-    rf_model = pickle.load(f)
+# Scaler
+try:
+    with open(scaler_path, "rb") as f:
+        scaler = pickle.load(f)
+except Exception as e:
+    st.error(f"scaler.pkl could not be loaded: {e}")
 
-with open(scaler_path, "rb") as f:
-    scaler = pickle.load(f)
-
-
-
+# Neural Network
+try:
+    nn_model = load_model(nn_path)
+except Exception as e:
+    st.error(f"nn_model.h5 could not be loaded: {e}")
 
 # -----------------------------
 # Sidebar - User Info
@@ -77,21 +81,23 @@ gender_numeric = gender_map[gender]
 # -----------------------------
 if st.button("Analyze Health Risk"):
 
-    # Prepare features array for ML
     rf_features = np.array([[sleep_hours, daily_stress, daily_steps, weekly_meditation,
                              fruits_veggies, time_for_passion, supporting_others, social_network,
                              bmi_range, work_life_balance_score, age, gender_numeric]])
-    
-    # Scale numeric for NN
-    nn_features = rf_features.copy()
-    nn_features[:, :11] = scaler.transform(nn_features[:, :11])
+
+    # Safe NN features
+    nn_features_scaled = rf_features.copy()
+    if scaler is not None:
+        nn_features_scaled[:, :11] = scaler.transform(nn_features_scaled[:, :11])
 
     # -----------------------------
     # Predictions
-    rf_prob = rf_model.predict_proba(rf_features)[0][1]  # probability of high risk
-    nn_pred_prob = nn_model.predict(nn_features)
-    nn_pred = np.argmax(nn_pred_prob, axis=1)[0]
-    nn_prob = nn_pred_prob[0][nn_pred]
+    rf_prob = rf_model.predict_proba(rf_features)[0][1] if rf_model is not None else 0
+    nn_prob = 0
+    if nn_model is not None and scaler is not None:
+        nn_pred_prob = nn_model.predict(nn_features_scaled)
+        nn_pred = np.argmax(nn_pred_prob, axis=1)[0]
+        nn_prob = nn_pred_prob[0][nn_pred]
 
     # -----------------------------
     # Dynamic Risk Scoring
@@ -102,10 +108,9 @@ if st.button("Analyze Health Risk"):
     if fruits_veggies < 6: risk_score += 1
     if bmi_range > 25: risk_score += 2
     if work_life_balance_score < 6: risk_score += 1
-    risk_score += rf_prob * 3  # add ML contribution
+    risk_score += rf_prob * 3  # ML contribution
 
     risk_probability = min((risk_score / 12) * 100, 100)
-
     if risk_probability < 30:
         risk_label = "Low"
     elif risk_probability < 70:
@@ -114,7 +119,7 @@ if st.button("Analyze Health Risk"):
         risk_label = "High"
 
     # -----------------------------
-    # Identify contributing factors
+    # Contributing factors
     issues = []
     if sleep_hours < 6: issues.append("Low Sleep Hours")
     if daily_stress > 6: issues.append("High Stress")
@@ -124,16 +129,16 @@ if st.button("Analyze Health Risk"):
     if work_life_balance_score < 6: issues.append("Low Work-Life Balance")
 
     # -----------------------------
-    # Personalized recommendations
+    # Recommendations
     if issues:
         diet_advice = "- Eat more fruits, vegetables, and balanced meals.\n- Drink plenty of water.\n- Reduce processed foods."
         workout_advice = "- Walk at least 5000 steps daily.\n- Include cardio and strength workouts.\n- Meditate regularly."
     else:
         diet_advice = "Great! Maintain your healthy diet and keep hydrated."
         workout_advice = "Excellent! Keep your activity and meditation routine consistent."
-    
+
     # -----------------------------
-    # Display results
+    # Display
     color_map = {"Low":"green", "Medium":"orange", "High":"red"}
     st.markdown(f"### Health Risk: <span style='color:{color_map[risk_label]}'>{risk_label}</span>", unsafe_allow_html=True)
     st.write(f"Risk Probability: {risk_probability:.2f}%")
@@ -146,7 +151,7 @@ if st.button("Analyze Health Risk"):
     st.text(workout_advice)
 
     # -----------------------------
-    # Radar chart visualization
+    # Radar chart
     radar_labels = ['Sleep','Stress','Steps','Meditation','Diet','Hobby','Helping','Social','BMI','Work-Life','Age']
     radar_values = [sleep_hours/24, daily_stress/10, daily_steps/15000, weekly_meditation/14,
                     fruits_veggies/10, time_for_passion/20, supporting_others/10, social_network/10,
@@ -163,7 +168,7 @@ if st.button("Analyze Health Risk"):
     st.pyplot(fig)
 
     # -----------------------------
-    # Generate Word report
+    # Word report
     doc = Document()
     doc.add_heading(f'Holistic Health Report - {name}', 0)
     doc.add_paragraph(f'Age: {age}')
@@ -173,7 +178,6 @@ if st.button("Analyze Health Risk"):
     doc.add_paragraph("Recommendations:")
     doc.add_paragraph("Diet: " + diet_advice.replace("\n","; "))
     doc.add_paragraph("Workout & Lifestyle: " + workout_advice.replace("\n","; "))
-
     if uploaded_file:
         doc.add_paragraph(f'Uploaded Report: {uploaded_file.name} included in analysis.')
 
@@ -182,7 +186,6 @@ if st.button("Analyze Health Risk"):
     buffer.seek(0)
     b64 = base64.b64encode(buffer.read()).decode()
     st.markdown(f'<a href="data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,{b64}" download="Holistic_Health_Report.docx">📥 Download Word Report</a>', unsafe_allow_html=True)
-
 
 
 
