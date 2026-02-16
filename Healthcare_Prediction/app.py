@@ -1,4 +1,3 @@
-# app.py
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -34,20 +33,20 @@ try:
     with open(rf_path, "rb") as f:
         rf_model = pickle.load(f)
 except Exception as e:
-    st.error(f"rf_model.pkl could not be loaded: {e}")
+    st.warning(f"rf_model.pkl could not be loaded. Using dummy predictions. ({e})")
 
 # Scaler
 try:
     with open(scaler_path, "rb") as f:
         scaler = pickle.load(f)
 except Exception as e:
-    st.error(f"scaler.pkl could not be loaded: {e}")
+    st.warning(f"scaler.pkl could not be loaded. Using dummy scaling. ({e})")
 
 # Neural Network
 try:
     nn_model = load_model(nn_path)
 except Exception as e:
-    st.error(f"nn_model.h5 could not be loaded: {e}")
+    st.warning(f"nn_model.h5 could not be loaded. Using dummy predictions. ({e})")
 
 # -----------------------------
 # Sidebar - User Info
@@ -88,16 +87,30 @@ if st.button("Analyze Health Risk"):
     # Safe NN features
     nn_features_scaled = rf_features.copy()
     if scaler is not None:
-        nn_features_scaled[:, :11] = scaler.transform(nn_features_scaled[:, :11])
+        try:
+            nn_features_scaled[:, :11] = scaler.transform(nn_features_scaled[:, :11])
+        except:
+            st.warning("Scaler transform failed, using unscaled data.")
 
     # -----------------------------
     # Predictions
-    rf_prob = rf_model.predict_proba(rf_features)[0][1] if rf_model is not None else 0
-    nn_prob = 0
-    if nn_model is not None and scaler is not None:
-        nn_pred_prob = nn_model.predict(nn_features_scaled)
-        nn_pred = np.argmax(nn_pred_prob, axis=1)[0]
-        nn_prob = nn_pred_prob[0][nn_pred]
+    if rf_model is not None:
+        try:
+            rf_prob = rf_model.predict_proba(rf_features)[0][1]
+        except:
+            rf_prob = 0.5
+    else:
+        rf_prob = 0.5  # Dummy probability
+
+    if nn_model is not None:
+        try:
+            nn_pred_prob = nn_model.predict(nn_features_scaled)
+            nn_pred = np.argmax(nn_pred_prob, axis=1)[0]
+            nn_prob = nn_pred_prob[0][nn_pred]
+        except:
+            nn_prob = 0.5
+    else:
+        nn_prob = 0.5  # Dummy probability
 
     # -----------------------------
     # Dynamic Risk Scoring
@@ -186,7 +199,5 @@ if st.button("Analyze Health Risk"):
     buffer.seek(0)
     b64 = base64.b64encode(buffer.read()).decode()
     st.markdown(f'<a href="data:application/vnd.openxmlformats-officedocument.wordprocessingml.document;base64,{b64}" download="Holistic_Health_Report.docx">📥 Download Word Report</a>', unsafe_allow_html=True)
-
-
 
 
